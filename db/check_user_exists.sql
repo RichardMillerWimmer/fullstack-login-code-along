@@ -1,3 +1,3 @@
 SELECT *
-FROM users
+FROM users4
 WHERE email = $1;
