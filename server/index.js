@@ -14,20 +14,35 @@ app.use(
   session({
     secret: SESSION_SECRET,
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: { maxAge: 100 * 60 * 60 * 24 * 7 }
   })
 );
 
-massive(CONNECTION_STRING).then(db => {
+
+massive({
+  connectionString: CONNECTION_STRING,
+  ssl: {
+    rejectUnauthorized: false
+  }
+}).then(db => {
+  // console.log('inside .then')
   app.set('db', db);
-});
+  app.listen(SERVER_PORT, () => {
+    console.log(`database connected and server listening on port: ${SERVER_PORT}`);
+  })
+})
+  .catch(error => console.log(error));
+
 
 app.post('/auth/signup', async (req, res) => {
   console.log(req.body)
   let { email, password } = req.body;
+  // console.log(email)
+  // console.log(password)
   let db = req.app.get('db');
-  console.log(db)
-  let foundUser = db.check_user_exists([email]);
+  // console.log(db)
+  let foundUser = await db.check_user_exists([email]);
   if (foundUser[0]) {
     return res.status(200).send('Email already exists')
   }
@@ -35,14 +50,15 @@ app.post('/auth/signup', async (req, res) => {
   let hash = bcrypt.hashSync(password, salt);
   let newUser = await db.create_user([email, hash]);
   req.session.user = { id: newUser[0].id, email: newUser[0].email }
-  res.status.apply(200).send(req.session.user);
+  res.status(200).send(req.session.user);
 })
 
 app.post('/auth/login', async (req, res) => {
-  console.log(req.body)
+  // console.log(req.body)
   let { email, password } = req.body;
   let db = req.app.get('db');
-  let user = db.check_user_exists([email]);
+  let user = db.check_user_exists(email);
+  // console.log(user)
   if (!user) {
     return res.status(400).send('email incorrect, try again or signup')
   }
@@ -55,6 +71,6 @@ app.post('/auth/login', async (req, res) => {
 })
 
 
-app.listen(SERVER_PORT, () => {
-  console.log(`Listening on port: ${SERVER_PORT}`);
-});
+// app.listen(SERVER_PORT, () => {
+//   console.log(`Listening on port: ${SERVER_PORT}`);
+// });
